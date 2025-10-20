@@ -1,16 +1,427 @@
-<!DOCTYPE html>
+ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                
+                ctx.save();
+                ctx.translate(viewport.x, viewport.y);
+                ctx.scale(viewport.zoom, viewport.zoom);
+                
+                links.forEach(l => {
+                    const from = nodes.find(n => n.id === l.from);
+                    const to = nodes.find(n => n.id === l.to);
+                    if (!from || !to) return;
+                    
+                    const gradient = ctx.createLinearGradient(from.x + 90, from.y + 25, to.x + 90, to.y + 25);
+                    gradient.addColorStop(0, '#8B5CF6');
+                    gradient.addColorStop(1, '#06B6D4');
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(from.x + 90, from.y + 25);
+                    ctx.lineTo(to.x + 90, to.y + 25);
+                    ctx.strokeStyle = gradient;
+                    ctx.lineWidth = 3;
+                    ctx.shadowColor = '#8B5CF6';
+                    ctx.shadowBlur = 10;
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                    
+                    const angle = Math.atan2(to.y - from.y, to.x - from.x);
+                    ctx.beginPath();
+                    ctx.moveTo(to.x + 90, to.y + 25);
+                    ctx.lineTo(to.x + 90 - 10 * Math.cos(angle - 0.4), to.y + 25 - 10 * Math.sin(angle - 0.4));
+                    ctx.lineTo(to.x + 90 - 10 * Math.cos(angle + 0.4), to.y + 25 - 10 * Math.sin(angle + 0.4));
+                    ctx.closePath();
+                    ctx.fillStyle = '#06B6D4';
+                    ctx.fill();
+                });
+                
+                ctx.restore();
+            }, [nodes, links, viewport]);
+
+            const stats = { total: nodes.length, done: nodes.filter(n => n.done).length };
+            const todayTasks = getTodayTasks();
+            const daysLeft = 19;
+
+            const bgClass = darkMode ? 'bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950' : 'bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400';
+
+            return (
+                <div className={`w-full h-screen ${bgClass} relative overflow-hidden transition-colors duration-500`}
+                    onMouseDown={handleCanvasMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onWheel={handleWheel}>
+                    
+                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                        <div className="absolute w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{top:'10%',left:'20%'}}/>
+                        <div className="absolute w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse" style={{top:'60%',right:'20%',animationDelay:'1s'}}/>
+                    </div>
+
+                    <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none"/>
+
+                    {/* Header */}
+                    <div className="absolute top-0 inset-x-0 bg-gradient-to-r from-purple-600/90 via-pink-600/90 to-red-600/90 backdrop-blur-xl border-b border-white/20 shadow-2xl z-50">
+                        <div className="flex justify-between items-center max-w-7xl mx-auto p-3">
+                            <div className="flex items-center gap-4">
+                                <Target size={28} className="text-yellow-300 animate-pulse"/>
+                                <div>
+                                    <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                                        8-Noyabrgacha
+                                        <span className="px-3 py-1 bg-yellow-400 text-black rounded-full text-lg font-black animate-bounce">
+                                            {daysLeft} KUN
+                                        </span>
+                                    </h1>
+                                    <div className="flex items-center gap-3 text-sm">
+                                        <span className="text-white/90">✅ {stats.done}/{stats.total}</span>
+                                        <div className="h-2 w-32 bg-white/20 rounded-full overflow-hidden">
+                                            <div className="h-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-500" 
+                                                style={{width:`${stats.total>0?(stats.done/stats.total)*100:0}%`}}/>
+                                        </div>
+                                        <span className="text-white/90 font-semibold">{stats.total>0?Math.round((stats.done/stats.total)*100):0}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-white/60 mr-2">{VERSION}</span>
+                                
+                                <button onClick={()=>setDarkMode(!darkMode)} className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all" title="Dark/Light Mode">
+                                    {darkMode ? <Sun size={18} className="text-white"/> : <Moon size={18} className="text-white"/>}
+                                </button>
+                                
+                                <button onClick={()=>{setNotificationsEnabled(!notificationsEnabled);if(!notificationsEnabled)Notification.requestPermission();}} 
+                                    className={`p-2 rounded-lg transition-all ${notificationsEnabled?'bg-green-500':'bg-white/20 hover:bg-white/30'}`} title="Eslatmalar">
+                                    <Bell size={18} className="text-white"/>
+                                </button>
+                                
+                                <button onClick={()=>setShowStats(!showStats)} className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all" title="Statistika">
+                                    <BarChart size={18} className="text-white"/>
+                                </button>
+                                
+                                <button onClick={()=>setFocusMode(!focusMode)} className={`p-2 rounded-lg transition-all ${focusMode?'bg-blue-500':'bg-white/20 hover:bg-white/30'}`} title="Fokus rejimi">
+                                    <Eye size={18} className="text-white"/>
+                                </button>
+                                
+                                <button onClick={()=>setShowToday(!showToday)} className="px-4 py-2 bg-yellow-400 hover:bg-yellow-300 text-black rounded-xl font-black transition-all flex items-center gap-2 shadow-lg hover:scale-105 animate-pulse">
+                                    <Clock size={18}/>
+                                    BUGUNGI VAZIFALAR
+                                </button>
+                                <button onClick={exportData} className="px-4 py-2 bg-white hover:bg-yellow-100 text-purple-600 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg">
+                                    <Download size={18}/> SAQLASH
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Today Modal */}
+                    {showToday && (
+                        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center" onClick={()=>setShowToday(false)}>
+                            <div className="w-[600px] max-h-[80vh] bg-gradient-to-br from-purple-900/98 to-pink-900/98 backdrop-blur-xl rounded-3xl border-2 border-yellow-400 shadow-2xl overflow-hidden" onClick={(e)=>e.stopPropagation()}>
+                                <div className="bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 p-6 relative">
+                                    <button onClick={()=>setShowToday(false)} className="absolute top-4 right-4 w-10 h-10 bg-black/30 hover:bg-black/50 rounded-full flex items-center justify-center transition-all">
+                                        <X size={24} className="text-white"/>
+                                    </button>
+                                    <h2 className="text-3xl font-black text-black flex items-center gap-3">
+                                        <Calendar size={36} className="animate-bounce"/>
+                                        BUGUN QILISH KERAK
+                                    </h2>
+                                    <p className="text-black/80 text-lg font-bold mt-2">
+                                        📅 20-Oktabr 2024, Yakshanba
+                                    </p>
+                                    <div className="mt-3 flex items-center gap-3">
+                                        <div className="flex-1 h-3 bg-black/20 rounded-full overflow-hidden">
+                                            <div className="h-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-500" 
+                                                style={{width:`${todayTasks.length>0?(todayTasks.filter(t=>t.done).length/todayTasks.length)*100:0}%`}}/>
+                                        </div>
+                                        <span className="text-black font-black text-lg">{todayTasks.filter(t=>t.done).length}/{todayTasks.length}</span>
+                                    </div>
+                                </div>
+                                
+                                <div className="p-6 space-y-4 max-h-[50vh] overflow-y-auto">
+                                    {todayTasks.map((task,index)=>(
+                                        <div key={task.id} className={`group relative p-5 rounded-2xl backdrop-blur border-2 transition-all cursor-pointer hover:scale-102 ${
+                                            task.done?'bg-green-500/20 border-green-400/60':'bg-white/10 border-white/30 hover:bg-white/20 hover:border-yellow-400'
+                                        }`} onClick={()=>toggle(task.id)}>
+                                            <div className="flex items-start gap-4">
+                                                <div className={`flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-black ${
+                                                    task.done?'bg-green-500 scale-110':'bg-gradient-to-br from-purple-500 to-pink-500'
+                                                }`}>
+                                                    {task.done?'✓':index+1}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className={`text-white text-lg font-bold ${task.done?'line-through opacity-60':''}`}>
+                                                        {task.text.replace(/📅 \d+-\d+: /,'')}
+                                                    </p>
+                                                    <div className="flex items-center gap-2 mt-2">
+                                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                                            task.category==='Yandex'?'bg-orange-500/30 text-orange-200':
+                                                            task.category==='Magazin'?'bg-purple-500/30 text-purple-200':
+                                                            'bg-blue-500/30 text-blue-200'
+                                                        }`}>
+                                                            {task.category}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                
+                                <div className="p-6 bg-black/30 border-t-2 border-yellow-400/30">
+                                    <div className="flex justify-between items-center text-white">
+                                        <p className="text-lg font-bold">Bugungi progress</p>
+                                        <p className="text-4xl font-black text-yellow-400">
+                                            {todayTasks.length>0?Math.round((todayTasks.filter(t=>t.done).length/todayTasks.length)*100):0}%
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Stats Modal */}
+                    {showStats && (
+                        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center" onClick={()=>setShowStats(false)}>
+                            <div className="w-[700px] max-h-[80vh] bg-gradient-to-br from-blue-900/98 to-indigo-900/98 backdrop-blur-xl rounded-3xl border-2 border-blue-400 shadow-2xl overflow-hidden" onClick={(e)=>e.stopPropagation()}>
+                                <div className="bg-gradient-to-r from-blue-400 via-cyan-500 to-teal-500 p-6 relative">
+                                    <button onClick={()=>setShowStats(false)} className="absolute top-4 right-4 w-10 h-10 bg-black/30 hover:bg-black/50 rounded-full flex items-center justify-center transition-all">
+                                        <X size={24} className="text-white"/>
+                                    </button>
+                                    <h2 className="text-3xl font-black text-black flex items-center gap-3">
+                                        <BarChart size={36}/>
+                                        STATISTIKA VA HISOBOT
+                                    </h2>
+                                </div>
+                                
+                                <div className="p-6 space-y-6">
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div className="bg-white/10 backdrop-blur rounded-xl p-4 border border-white/20">
+                                            <p className="text-white/60 text-sm">Jami vazifalar</p>
+                                            <p className="text-3xl font-black text-white mt-2">{stats.total}</p>
+                                        </div>
+                                        <div className="bg-green-500/20 backdrop-blur rounded-xl p-4 border border-green-400/50">
+                                            <p className="text-green-200 text-sm">Bajarildi</p>
+                                            <p className="text-3xl font-black text-green-400 mt-2">{stats.done}</p>
+                                        </div>
+                                        <div className="bg-orange-500/20 backdrop-blur rounded-xl p-4 border border-orange-400/50">
+                                            <p className="text-orange-200 text-sm">Qolgan</p>
+                                            <p className="text-3xl font-black text-orange-400 mt-2">{stats.total - stats.done}</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="bg-white/10 backdrop-blur rounded-xl p-6 border border-white/20">
+                                        <h3 className="text-xl font-bold text-white mb-4">📊 Umumiy Progress</h3>
+                                        <div className="h-4 bg-white/10 rounded-full overflow-hidden">
+                                            <div className="h-full bg-gradient-to-r from-green-400 via-blue-500 to-purple-500 transition-all duration-1000"
+                                                style={{width:`${stats.total>0?(stats.done/stats.total)*100:0}%`}}/>
+                                        </div>
+                                        <p className="text-center text-4xl font-black text-white mt-4">
+                                            {stats.total>0?Math.round((stats.done/stats.total)*100):0}%
+                                        </p>
+                                    </div>
+                                    
+                                    <div className="bg-white/10 backdrop-blur rounded-xl p-6 border border-white/20">
+                                        <h3 className="text-xl font-bold text-white mb-4">🎯 Kategoriyalar bo'yicha</h3>
+                                        <div className="space-y-3">
+                                            {['Yandex', 'Magazin', 'Telegram', 'Muhim'].map(cat => {
+                                                const catTasks = nodes.filter(n => n.category === cat);
+                                                const catDone = catTasks.filter(n => n.done).length;
+                                                const catPercent = catTasks.length > 0 ? Math.round((catDone/catTasks.length)*100) : 0;
+                                                return (
+                                                    <div key={cat}>
+                                                        <div className="flex justify-between text-white text-sm mb-1">
+                                                            <span>{cat}</span>
+                                                            <span>{catDone}/{catTasks.length} ({catPercent}%)</span>
+                                                        </div>
+                                                        <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                                                            <div className="h-full bg-gradient-to-r from-purple-400 to-pink-500 transition-all"
+                                                                style={{width:`${catPercent}%`}}/>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 backdrop-blur rounded-xl p-6 border border-yellow-400/50">
+                                        <h3 className="text-xl font-bold text-yellow-300 mb-2">💪 Motivatsiya</h3>
+                                        <p className="text-white">
+                                            {stats.done === 0 && "Boshladingiz! Har qandam muvaffaqiyat birinchi qadamdan boshlanadi! 🚀"}
+                                            {stats.done > 0 && stats.done < stats.total * 0.3 && "Yaxshi ketayapti! Davom eting! 💪"}
+                                            {stats.done >= stats.total * 0.3 && stats.done < stats.total * 0.6 && "Ajoyib! Yarim yo'lni bosib o'tdingiz! 🎯"}
+                                            {stats.done >= stats.total * 0.6 && stats.done < stats.total * 0.9 && "Zo'r! Oxir-oqibatgacha oz qoldi! 🔥"}
+                                            {stats.done >= stats.total * 0.9 && stats.done < stats.total && "Deyarli tayyor! Oxirgi qadamlar! 🎉"}
+                                            {stats.done === stats.total && "🎉🎉🎉 TABRIKLAYMIZ! HAMMASI BAJARILDI! 🎉🎉🎉"}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Focus Mode Overlay */}
+                    {focusMode && (
+                        <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-40 flex items-center justify-center">
+                            <div className="max-w-2xl w-full mx-4">
+                                <div className="bg-gradient-to-br from-indigo-900/95 to-purple-900/95 backdrop-blur-xl rounded-3xl border-2 border-indigo-400 shadow-2xl p-8">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className="text-3xl font-black text-white flex items-center gap-3">
+                                            <Eye size={32} className="text-indigo-400"/>
+                                            FOKUS REJIMI
+                                        </h2>
+                                        <button onClick={()=>setFocusMode(false)} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-white font-bold transition-all">
+                                            Chiqish
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="space-y-4">
+                                        {todayTasks.length === 0 ? (
+                                            <div className="text-center py-12">
+                                                <p className="text-white/60 text-xl">Bugun uchun vazifa yo'q</p>
+                                            </div>
+                                        ) : (
+                                            todayTasks.map((task, index) => (
+                                                <div key={task.id} className={`p-6 rounded-2xl border-2 transition-all cursor-pointer ${
+                                                    task.done 
+                                                        ? 'bg-green-500/20 border-green-400/60' 
+                                                        : 'bg-white/10 border-white/30 hover:bg-white/20'
+                                                }`} onClick={()=>toggle(task.id)}>
+                                                    <div className="flex items-center gap-4">
+                                                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-black ${
+                                                            task.done ? 'bg-green-500' : 'bg-gradient-to-br from-indigo-500 to-purple-500'
+                                                        }`}>
+                                                            {task.done ? '✓' : index + 1}
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <p className={`text-white text-2xl font-bold ${task.done ? 'line-through opacity-60' : ''}`}>
+                                                                {task.text.replace(/📅 \d+-\d+: /, '')}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                    
+                                    <div className="mt-6 p-4 bg-white/10 rounded-xl">
+                                        <div className="flex justify-between items-center text-white">
+                                            <span className="text-lg">Progress:</span>
+                                            <span className="text-3xl font-black text-indigo-400">
+                                                {todayTasks.length>0?Math.round((todayTasks.filter(t=>t.done).length/todayTasks.length)*100):0}%
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Left Panel */}
+                    <div className="absolute left-4 top-20 bg-gradient-to-br from-purple-900/95 to-blue-900/95 backdrop-blur-xl rounded-2xl p-3 border border-white/20 shadow-2xl space-y-2 z-40">
+                        <p className="text-purple-300 font-bold text-sm">QO'SHISH</p>
+                        {types.map(({type,color,label})=>(
+                            <button key={type} onClick={()=>addNode(type)} 
+                                className="w-full px-3 py-2 rounded-xl text-white text-xs font-medium hover:scale-105 transition-all shadow-lg border border-white/20"
+                                style={{background:`linear-gradient(135deg,${color},${color}dd)`}}>
+                                {label}
+                            </button>
+                        ))}
+                        <div className="border-t border-white/20 pt-2 space-y-2">
+                            <button onClick={startLink} disabled={!selected} 
+                                className={`w-full px-3 py-2 rounded-xl text-white text-xs font-medium transition-all shadow-lg border border-white/20 ${
+                                    selected?'bg-gradient-to-r from-blue-600 to-cyan-600 hover:scale-105':'bg-white/10 opacity-50'
+                                }`}>
+                                <Link2 size={12} className="inline"/> Bog'lash
+                            </button>
+                            <button onClick={deleteNode} disabled={!selected} 
+                                className={`w-full px-3 py-2 rounded-xl text-white text-xs font-medium transition-all shadow-lg border border-white/20 ${
+                                    selected?'bg-gradient-to-r from-red-600 to-pink-600 hover:scale-105':'bg-white/10 opacity-50'
+                                }`}>
+                                <Trash2 size={12} className="inline"/> O'chirish
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Right Controls */}
+                    <div className="absolute right-4 bottom-4 bg-gradient-to-br from-purple-900/95 to-blue-900/95 backdrop-blur-xl rounded-2xl p-3 border border-white/20 shadow-2xl space-y-2 z-40">
+                        <p className="text-purple-300 font-bold text-sm">BOSHQARISH</p>
+                        <button onClick={zoomIn} className="w-full px-3 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:scale-105 rounded-xl text-white text-xs font-medium transition-all shadow-lg border border-white/20">
+                            <ZoomIn size={12} className="inline"/> Zoom +
+                        </button>
+                        <button onClick={zoomOut} className="w-full px-3 py-2 bg-gradient-to-r from-orange-600 to-red-600 hover:scale-105 rounded-xl text-white text-xs font-medium transition-all shadow-lg border border-white/20">
+                            <ZoomOut size={12} className="inline"/> Zoom -
+                        </button>
+                        <button onClick={resetView} className="w-full px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:scale-105 rounded-xl text-white text-xs font-medium transition-all shadow-lg border border-white/20">
+                            <Home size={12} className="inline"/> Reset
+                        </button>
+                        <p className="text-white/60 text-xs pt-2 border-t border-white/20">Zoom: {Math.round(viewport.zoom*100)}%</p>
+                    </div>
+
+                    {/* Nodes */}
+                    <div style={{transform:`translate(${viewport.x}px,${viewport.y}px) scale(${viewport.zoom})`,transformOrigin:'0 0'}} className="absolute inset-0 pointer-events-none">
+                        {nodes.map(node=>(
+                            <div key={node.id} className={`absolute pointer-events-auto cursor-grab active:cursor-grabbing transition-all duration-200 ${
+                                selected===node.id?'scale-110 z-10':'hover:scale-105'
+                            } ${node.done?'opacity-50':''}`}
+                            style={{left:node.x,top:node.y}}
+                            onMouseDown={(e)=>{
+                                e.stopPropagation();
+                                setDragging(node.id);
+                                setSelected(node.id);
+                                const worldX=(e.clientX-viewport.x)/viewport.zoom;
+                                const worldY=(e.clientY-viewport.y)/viewport.zoom;
+                                setOffset({x:worldX-node.x,y:worldY-node.y});
+                            }}
+                            onClick={(e)=>{e.stopPropagation();if(linking)completeLink(node.id);}}
+                            onDoubleClick={(e)=>{e.stopPropagation();setEditing(node.id);}}>
+                                <div className={`relative w-44 p-2 rounded-xl backdrop-blur-xl border-2 shadow-2xl transition-all ${
+                                    selected===node.id?'border-yellow-400 shadow-yellow-400/50':'border-white/30'
+                                }`}
+                                style={{
+                                    background:`linear-gradient(135deg,${node.color}cc,${node.color}99)`,
+                                    boxShadow:selected===node.id?`0 0 30px ${node.color}80`:`0 10px 30px ${node.color}40`
+                                }}>
+                                    {editing===node.id?(
+                                        <input value={node.text} onChange={(e)=>updateText(node.id,e.target.value)}
+                                            onBlur={()=>setEditing(null)} onKeyPress={(e)=>e.key==='Enter'&&setEditing(null)}
+                                            className="w-full bg-white/20 text-white text-xs px-2 py-1 rounded outline-none"
+                                            autoFocus onClick={(e)=>e.stopPropagation()}/>
+                                    ):(
+                                        <p className={`text-white text-xs font-bold break-words ${node.done?'line-through':''}`}>{node.text}</p>
+                                    )}
+                                    <button onClick={(e)=>{e.stopPropagation();toggle(node.id);}}
+                                        className="absolute -top-2 -right-2 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-all border-2 border-purple-400">
+                                        {node.done?<CheckCircle size={14} className="text-green-600"/>:<div className="w-2.5 h-2.5 border-2 border-gray-500 rounded-full"/>}
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {linking&&(
+                        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-orange-500 text-black px-8 py-4 rounded-full font-black shadow-2xl animate-bounce z-50 text-lg border-4 border-white">
+                            🔗 Ikkinchi elementni bosing!
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<MindMap />);
+    </script>
+</body>
+</html><!DOCTYPE html>
 <html lang="uz">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kunlik Reja - Biznes Planner v1.0.0</title>
+    <title>Kunlik Reja - Biznes Planner v1.1.0</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
+        .light-mode { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
     </style>
 </head>
 <body>
@@ -19,7 +430,7 @@
     <script type="text/babel">
         const { useState, useRef, useEffect } = React;
         
-        // Lucide icons as SVG components
+        // Icons
         const Target = ({ size = 24, className = "" }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
                 <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
@@ -86,10 +497,45 @@
             </svg>
         );
 
+        const Bell = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+        );
+
+        const BarChart = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/>
+            </svg>
+        );
+
+        const Eye = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+        );
+
+        const Moon = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+        );
+
+        const Sun = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+        );
+
         function MindMap() {
-            const VERSION = "v1.0.0"; // Versiya
+            const VERSION = "v1.1.0";
             const [currentDate] = useState(new Date('2024-10-20T19:39:00'));
             const [showToday, setShowToday] = useState(false);
+            const [showStats, setShowStats] = useState(false);
+            const [showWeekly, setShowWeekly] = useState(false);
+            const [focusMode, setFocusMode] = useState(false);
+            const [darkMode, setDarkMode] = useState(true);
+            const [notificationsEnabled, setNotificationsEnabled] = useState(false);
             
             const dailyTasks = [
                 { date: '2024-10-20', tasks: [
@@ -196,6 +642,43 @@
                     { text: '🎉🎉🎉 TAYYOR! 🎉🎉🎉', color: '#DC2626', category: 'Muhim' }
                 ]}
             ];
+
+            // Notifications
+            useEffect(() => {
+                if (notificationsEnabled && 'Notification' in window) {
+                    Notification.requestPermission();
+                }
+            }, [notificationsEnabled]);
+
+            const sendNotification = (title, body) => {
+                if (notificationsEnabled && Notification.permission === 'granted') {
+                    new Notification(title, { body, icon: '/favicon.ico' });
+                }
+            };
+
+            // Check time for notifications
+            useEffect(() => {
+                const checkTime = setInterval(() => {
+                    const now = new Date();
+                    const hour = now.getHours();
+                    const minute = now.getMinutes();
+                    
+                    if (hour === 9 && minute === 0) {
+                        const todayTasks = getTodayTasks();
+                        sendNotification('☀️ Yaxshi tong!', `Bugun ${todayTasks.length} ta vazifa bor!`);
+                    }
+                    
+                    if (hour === 20 && minute === 0) {
+                        const todayTasks = getTodayTasks();
+                        const remaining = todayTasks.filter(t => !t.done).length;
+                        if (remaining > 0) {
+                            sendNotification('⏰ Eslatma!', `${remaining} ta vazifa bajarilmagan!`);
+                        }
+                    }
+                }, 60000);
+                
+                return () => clearInterval(checkTime);
+            }, [notificationsEnabled]);
 
             const createNodesFromDailyTasks = () => {
                 const savedData = localStorage.getItem('mindMapData');
@@ -358,257 +841,3 @@
                 if (!ctx) return;
                 ctx.canvas.width = window.innerWidth;
                 ctx.canvas.height = window.innerHeight;
-                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-                
-                ctx.save();
-                ctx.translate(viewport.x, viewport.y);
-                ctx.scale(viewport.zoom, viewport.zoom);
-                
-                links.forEach(l => {
-                    const from = nodes.find(n => n.id === l.from);
-                    const to = nodes.find(n => n.id === l.to);
-                    if (!from || !to) return;
-                    
-                    const gradient = ctx.createLinearGradient(from.x + 90, from.y + 25, to.x + 90, to.y + 25);
-                    gradient.addColorStop(0, '#8B5CF6');
-                    gradient.addColorStop(1, '#06B6D4');
-                    
-                    ctx.beginPath();
-                    ctx.moveTo(from.x + 90, from.y + 25);
-                    ctx.lineTo(to.x + 90, to.y + 25);
-                    ctx.strokeStyle = gradient;
-                    ctx.lineWidth = 3;
-                    ctx.shadowColor = '#8B5CF6';
-                    ctx.shadowBlur = 10;
-                    ctx.stroke();
-                    ctx.shadowBlur = 0;
-                    
-                    const angle = Math.atan2(to.y - from.y, to.x - from.x);
-                    ctx.beginPath();
-                    ctx.moveTo(to.x + 90, to.y + 25);
-                    ctx.lineTo(to.x + 90 - 10 * Math.cos(angle - 0.4), to.y + 25 - 10 * Math.sin(angle - 0.4));
-                    ctx.lineTo(to.x + 90 - 10 * Math.cos(angle + 0.4), to.y + 25 - 10 * Math.sin(angle + 0.4));
-                    ctx.closePath();
-                    ctx.fillStyle = '#06B6D4';
-                    ctx.fill();
-                });
-                
-                ctx.restore();
-            }, [nodes, links, viewport]);
-
-            const stats = { total: nodes.length, done: nodes.filter(n => n.done).length };
-            const todayTasks = getTodayTasks();
-            const daysLeft = 19;
-
-            return (
-                <div className="w-full h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 relative overflow-hidden"
-                    onMouseDown={handleCanvasMouseDown}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                    onWheel={handleWheel}>
-                    
-                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                        <div className="absolute w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{top:'10%',left:'20%'}}/>
-                        <div className="absolute w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse" style={{top:'60%',right:'20%',animationDelay:'1s'}}/>
-                    </div>
-
-                    <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none"/>
-
-                    <div className="absolute top-0 inset-x-0 bg-gradient-to-r from-purple-600/90 via-pink-600/90 to-red-600/90 backdrop-blur-xl border-b border-white/20 shadow-2xl z-50">
-                        <div className="flex justify-between items-center max-w-7xl mx-auto p-3">
-                            <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-2">
-                                    <Target size={28} className="text-yellow-300 animate-pulse"/>
-                                    <div>
-                                        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-                                            8-Noyabrgacha
-                                            <span className="px-3 py-1 bg-yellow-400 text-black rounded-full text-lg font-black animate-bounce">
-                                                {daysLeft} KUN
-                                            </span>
-                                        </h1>
-                                        <div className="flex items-center gap-3 text-sm">
-                                            <span className="text-white/90">✅ {stats.done}/{stats.total}</span>
-                                            <div className="h-2 w-32 bg-white/20 rounded-full overflow-hidden">
-                                                <div className="h-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-500" 
-                                                    style={{width:`${stats.total>0?(stats.done/stats.total)*100:0}%`}}/>
-                                            </div>
-                                            <span className="text-white/90 font-semibold">{stats.total>0?Math.round((stats.done/stats.total)*100):0}%</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs text-white/60 mr-2">{VERSION}</span>
-                                <button onClick={()=>setShowToday(!showToday)} className="px-4 py-2 bg-yellow-400 hover:bg-yellow-300 text-black rounded-xl font-black transition-all flex items-center gap-2 shadow-lg hover:scale-105 animate-pulse">
-                                    <Clock size={18}/>
-                                    BUGUNGI VAZIFALAR
-                                </button>
-                                <button onClick={exportData} className="px-4 py-2 bg-white hover:bg-yellow-100 text-purple-600 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg">
-                                    <Download size={18}/> SAQLASH
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {showToday && (
-                        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center" onClick={()=>setShowToday(false)}>
-                            <div className="w-[600px] max-h-[80vh] bg-gradient-to-br from-purple-900/98 to-pink-900/98 backdrop-blur-xl rounded-3xl border-2 border-yellow-400 shadow-2xl overflow-hidden" onClick={(e)=>e.stopPropagation()}>
-                                <div className="bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 p-6 relative">
-                                    <button onClick={()=>setShowToday(false)} className="absolute top-4 right-4 w-10 h-10 bg-black/30 hover:bg-black/50 rounded-full flex items-center justify-center transition-all">
-                                        <X size={24} className="text-white"/>
-                                    </button>
-                                    <h2 className="text-3xl font-black text-black flex items-center gap-3">
-                                        <Calendar size={36} className="animate-bounce"/>
-                                        BUGUN QILISH KERAK
-                                    </h2>
-                                    <p className="text-black/80 text-lg font-bold mt-2">
-                                        📅 20-Oktabr 2024, Yakshanba
-                                    </p>
-                                    <div className="mt-3 flex items-center gap-3">
-                                        <div className="flex-1 h-3 bg-black/20 rounded-full overflow-hidden">
-                                            <div className="h-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-500" 
-                                                style={{width:`${todayTasks.length>0?(todayTasks.filter(t=>t.done).length/todayTasks.length)*100:0}%`}}/>
-                                        </div>
-                                        <span className="text-black font-black text-lg">{todayTasks.filter(t=>t.done).length}/{todayTasks.length}</span>
-                                    </div>
-                                </div>
-                                
-                                <div className="p-6 space-y-4 max-h-[50vh] overflow-y-auto">
-                                    {todayTasks.map((task,index)=>(
-                                        <div key={task.id} className={`group relative p-5 rounded-2xl backdrop-blur border-2 transition-all cursor-pointer hover:scale-102 ${
-                                            task.done?'bg-green-500/20 border-green-400/60':'bg-white/10 border-white/30 hover:bg-white/20 hover:border-yellow-400'
-                                        }`} onClick={()=>toggle(task.id)}>
-                                            <div className="flex items-start gap-4">
-                                                <div className={`flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-black ${
-                                                    task.done?'bg-green-500 scale-110':'bg-gradient-to-br from-purple-500 to-pink-500'
-                                                }`}>
-                                                    {task.done?'✓':index+1}
-                                                </div>
-                                                <div className="flex-1">
-                                                    <p className={`text-white text-lg font-bold ${task.done?'line-through opacity-60':''}`}>
-                                                        {task.text.replace(/📅 \d+-\d+: /,'')}
-                                                    </p>
-                                                    <div className="flex items-center gap-2 mt-2">
-                                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                                            task.category==='Yandex'?'bg-orange-500/30 text-orange-200':
-                                                            task.category==='Magazin'?'bg-purple-500/30 text-purple-200':
-                                                            'bg-blue-500/30 text-blue-200'
-                                                        }`}>
-                                                            {task.category}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                                
-                                <div className="p-6 bg-black/30 border-t-2 border-yellow-400/30">
-                                    <div className="flex justify-between items-center text-white">
-                                        <div>
-                                            <p className="text-lg font-bold">Bugungi progress</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-4xl font-black text-yellow-400">
-                                                {todayTasks.length>0?Math.round((todayTasks.filter(t=>t.done).length/todayTasks.length)*100):0}%
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="absolute left-4 top-20 bg-gradient-to-br from-purple-900/95 to-blue-900/95 backdrop-blur-xl rounded-2xl p-3 border border-white/20 shadow-2xl space-y-2 z-40">
-                        <p className="text-purple-300 font-bold text-sm">QO'SHISH</p>
-                        {types.map(({type,color,label})=>(
-                            <button key={type} onClick={()=>addNode(type)} 
-                                className="w-full px-3 py-2 rounded-xl text-white text-xs font-medium hover:scale-105 transition-all shadow-lg border border-white/20"
-                                style={{background:`linear-gradient(135deg,${color},${color}dd)`}}>
-                                {label}
-                            </button>
-                        ))}
-                        <div className="border-t border-white/20 pt-2 space-y-2">
-                            <button onClick={startLink} disabled={!selected} 
-                                className={`w-full px-3 py-2 rounded-xl text-white text-xs font-medium transition-all shadow-lg border border-white/20 ${
-                                    selected?'bg-gradient-to-r from-blue-600 to-cyan-600 hover:scale-105':'bg-white/10 opacity-50'
-                                }`}>
-                                <Link2 size={12} className="inline"/> Bog'lash
-                            </button>
-                            <button onClick={deleteNode} disabled={!selected} 
-                                className={`w-full px-3 py-2 rounded-xl text-white text-xs font-medium transition-all shadow-lg border border-white/20 ${
-                                    selected?'bg-gradient-to-r from-red-600 to-pink-600 hover:scale-105':'bg-white/10 opacity-50'
-                                }`}>
-                                <Trash2 size={12} className="inline"/> O'chirish
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="absolute right-4 bottom-4 bg-gradient-to-br from-purple-900/95 to-blue-900/95 backdrop-blur-xl rounded-2xl p-3 border border-white/20 shadow-2xl space-y-2 z-40">
-                        <p className="text-purple-300 font-bold text-sm">BOSHQARISH</p>
-                        <button onClick={zoomIn} className="w-full px-3 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:scale-105 rounded-xl text-white text-xs font-medium transition-all shadow-lg border border-white/20">
-                            <ZoomIn size={12} className="inline"/> Zoom +
-                        </button>
-                        <button onClick={zoomOut} className="w-full px-3 py-2 bg-gradient-to-r from-orange-600 to-red-600 hover:scale-105 rounded-xl text-white text-xs font-medium transition-all shadow-lg border border-white/20">
-                            <ZoomOut size={12} className="inline"/> Zoom -
-                        </button>
-                        <button onClick={resetView} className="w-full px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:scale-105 rounded-xl text-white text-xs font-medium transition-all shadow-lg border border-white/20">
-                            <Home size={12} className="inline"/> Reset
-                        </button>
-                        <p className="text-white/60 text-xs pt-2 border-t border-white/20">Zoom: {Math.round(viewport.zoom*100)}%</p>
-                    </div>
-
-                    <div style={{transform:`translate(${viewport.x}px,${viewport.y}px) scale(${viewport.zoom})`,transformOrigin:'0 0'}} className="absolute inset-0 pointer-events-none">
-                        {nodes.map(node=>(
-                            <div key={node.id} className={`absolute pointer-events-auto cursor-grab active:cursor-grabbing transition-all duration-200 ${
-                                selected===node.id?'scale-110 z-10':'hover:scale-105'
-                            } ${node.done?'opacity-50':''}`}
-                            style={{left:node.x,top:node.y}}
-                            onMouseDown={(e)=>{
-                                e.stopPropagation();
-                                setDragging(node.id);
-                                setSelected(node.id);
-                                const worldX=(e.clientX-viewport.x)/viewport.zoom;
-                                const worldY=(e.clientY-viewport.y)/viewport.zoom;
-                                setOffset({x:worldX-node.x,y:worldY-node.y});
-                            }}
-                            onClick={(e)=>{e.stopPropagation();if(linking)completeLink(node.id);}}
-                            onDoubleClick={(e)=>{e.stopPropagation();setEditing(node.id);}}>
-                                <div className={`relative w-44 p-2 rounded-xl backdrop-blur-xl border-2 shadow-2xl transition-all ${
-                                    selected===node.id?'border-yellow-400 shadow-yellow-400/50':'border-white/30'
-                                }`}
-                                style={{
-                                    background:`linear-gradient(135deg,${node.color}cc,${node.color}99)`,
-                                    boxShadow:selected===node.id?`0 0 30px ${node.color}80`:`0 10px 30px ${node.color}40`
-                                }}>
-                                    {editing===node.id?(
-                                        <input value={node.text} onChange={(e)=>updateText(node.id,e.target.value)}
-                                            onBlur={()=>setEditing(null)} onKeyPress={(e)=>e.key==='Enter'&&setEditing(null)}
-                                            className="w-full bg-white/20 text-white text-xs px-2 py-1 rounded outline-none"
-                                            autoFocus onClick={(e)=>e.stopPropagation()}/>
-                                    ):(
-                                        <p className={`text-white text-xs font-bold break-words ${node.done?'line-through':''}`}>{node.text}</p>
-                                    )}
-                                    <button onClick={(e)=>{e.stopPropagation();toggle(node.id);}}
-                                        className="absolute -top-2 -right-2 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-all border-2 border-purple-400">
-                                        {node.done?<CheckCircle size={14} className="text-green-600"/>:<div className="w-2.5 h-2.5 border-2 border-gray-500 rounded-full"/>}
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {linking&&(
-                        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-orange-500 text-black px-8 py-4 rounded-full font-black shadow-2xl animate-bounce z-50 text-lg border-4 border-white">
-                            🔗 Ikkinchi elementni bosing!
-                        </div>
-                    )}
-                </div>
-            );
-        }
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<MindMap />);
-    </script>
-</body>
-</html>
